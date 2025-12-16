@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  # 1. Primary Database (PostgreSQL)
+  postgres:
+    image: postgres:15-alpine
+    container_name: flashtix_db
+    environment:
+      POSTGRES_USER: arshad
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: flashtix_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # 2. Caching Layer (Redis)
+  redis:
+    image: redis:alpine
+    container_name: flashtix_cache
+    ports:
+      - "6379:6379"
+
+volumes:
+  postgres_data:
