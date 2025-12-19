@@ -1,4 +1,4 @@
-![Build Status](https://github.com/MohdArshad-cell/StreamFlow-Backend/actions/workflows/maven.yml/badge.svg)
+![CI/CD Pipeline](https://github.com/MohdArshad-cell/FlashTix-Backend/actions/workflows/maven.yml/badge.svg)
 
 # ⚡ FlashTix - High-Performance Ticketing Engine
 
