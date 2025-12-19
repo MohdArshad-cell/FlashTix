@@ -26,27 +26,7 @@ Unlike typical CRUD apps, FlashTix solves the **"Double Booking Problem"** using
 
 The system processes booking requests through a rigorous pipeline to protect the database from being overwhelmed.
 
-graph TD
-    User[User Request] -->|POST /book| API[Booking Service]
-    
-    subgraph "Observability Layer"
-        API -.->|Record Metrics| Micrometer[Micrometer]
-        Micrometer -->|Scrape| Prom[Prometheus]
-        Prom -->|Visualize| Grafana[Grafana Dashboard]
-    end
-
-    subgraph "Layer 1: Redis Distributed Lock"
-        API -->|SETNX (Lua Script)| Redis{Acquire Lock?}
-        Redis -- No --> Reject[409 Conflict: fast-fail]
-    end
-    
-    subgraph "Layer 2: Database Optimistic Locking"
-        Redis -- Yes --> DB[PostgreSQL Transaction]
-        DB -->|Check @Version| Verify{Version Match?}
-        Verify -- No --> Rollback[OptimisticLockException]
-        Verify -- Yes --> Commit[Success: Ticket Booked]
-    end
-
+![System Architecture](assets/architecture.png)
 
 
 ### 1. Redis Distributed Lock (The Gatekeeper)
