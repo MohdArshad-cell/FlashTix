@@ -10,7 +10,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    # This section spins up temporary DB/Redis containers for the test runner
+    # Spin up DB and Redis for integration tests
     services:
       postgres:
         image: postgres:15
@@ -42,5 +42,5 @@ jobs:
         cache: maven
         
     - name: Build with Maven
-      # We skip the specific load test just in case, though @Disabled handles it
-      run: ./mvnw clean test -Dtest=!ApiLoadTest
+      # FIX: Use global 'mvn' and point to the backend folder
+      run: mvn -B -f backend/pom.xml clean test -Dtest=!ApiLoadTest

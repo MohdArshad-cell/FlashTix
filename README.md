@@ -1,5 +1,3 @@
-
-```markdown
 # ⚡ FlashTix - High-Performance Ticketing Engine
 
 ![Java](https://img.shields.io/badge/Java-17-orange) ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4-green) ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue) ![Redis](https://img.shields.io/badge/Redis-Distributed%20Lock-red) ![Grafana](https://img.shields.io/badge/Observability-Grafana%20%2B%20Prometheus-orange)
@@ -28,7 +26,6 @@ Unlike typical CRUD apps, FlashTix solves the **"Double Booking Problem"** using
 
 The system processes booking requests through a rigorous pipeline to protect the database from being overwhelmed.
 
-```mermaid
 graph TD
     User[User Request] -->|POST /book| API[Booking Service]
     
@@ -50,7 +47,7 @@ graph TD
         Verify -- Yes --> Commit[Success: Ticket Booked]
     end
 
-```
+
 
 ### 1. Redis Distributed Lock (The Gatekeeper)
 
