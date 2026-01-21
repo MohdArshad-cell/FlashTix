@@ -48,10 +48,10 @@ jobs:
         
     - name: Build with Maven
       env:
-        # ✅ Explicitly set credentials to match the service above
-        DB_URL: jdbc:postgresql://localhost:5432/flashtix_db
-        DB_USERNAME: postgres
-        DB_PASSWORD: password
+        # ✅ USE THESE EXACT NAMES TO OVERRIDE SPRING BOOT DEFAULTS
+        SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/flashtix_db
+        SPRING_DATASOURCE_USERNAME: postgres
+        SPRING_DATASOURCE_PASSWORD: password
       run: mvn -B -f backend/pom.xml clean package -Dtest=!ApiLoadTest
 
     - name: Upload Artifact
