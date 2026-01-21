@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "tickets", indexes = {
     @Index(name = "idx_status", columnList = "status"),
-    @Index(name = "idx_user_id", columnList = "userId")
+    @Index(name = "idx_user_id", columnList = "user_id") // <--- FIXED
 })
 @EntityListeners(AuditingEntityListener.class)
 @Data
