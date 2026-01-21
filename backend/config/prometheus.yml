@@ -1,8 +1,34 @@
 global:
-  scrape_interval: 2s 
+  scrape_interval: 2s
+  evaluation_interval: 2s
+  external_labels:
+    monitor: 'flashtix-monitor'
 
 scrape_configs:
+  # Scrape FlashTix Backend Metrics
   - job_name: 'flashtix_backend'
     metrics_path: '/actuator/prometheus'
     static_configs:
+      - targets: ['flashtix-backend:8080']
+        labels:
+          application: 'FlashTix'
+          environment: 'production'
+    # Fallback to host.docker.internal if backend is not in Docker
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'flashtix-backend'
+  
+  # Alternative target if running backend outside Docker
+  - job_name: 'flashtix_backend_host'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
       - targets: ['host.docker.internal:8080']
+        labels:
+          application: 'FlashTix'
+          environment: 'development'
+  
+  # Scrape Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
