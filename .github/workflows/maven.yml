@@ -26,7 +26,6 @@ jobs:
           --health-timeout 5s
           --health-retries 5
       
-      # 👇 THIS IS THE FIX YOU ARE MISSING
       redis:
         image: redis
         ports:
@@ -48,10 +47,13 @@ jobs:
         cache: maven
         
     - name: Build with Maven
-      # Skips manual load tests but runs unit/concurrency tests
+      env:
+        # ✅ Explicitly set credentials to match the service above
+        DB_URL: jdbc:postgresql://localhost:5432/flashtix_db
+        DB_USERNAME: postgres
+        DB_PASSWORD: password
       run: mvn -B -f backend/pom.xml clean package -Dtest=!ApiLoadTest
 
-    # Save the JAR file so the next job can use it
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
@@ -60,14 +62,13 @@ jobs:
 
   # JOB 2: PUBLISH TO DOCKER HUB (The CD Part)
   push-docker-image:
-    needs: build-and-test # Only runs if tests pass
+    needs: build-and-test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' # Only push image on main branch merges
+    if: github.ref == 'refs/heads/main'
 
     steps:
       - uses: actions/checkout@v4
 
-      # Download the JAR built in the previous job
       - name: Download Artifact
         uses: actions/download-artifact@v4
         with:
