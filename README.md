@@ -3,147 +3,64 @@
 ![CI/CD Pipeline](https://github.com/MohdArshad-cell/FlashTix-Backend/actions/workflows/maven.yml/badge.svg)
 ![Java](https://img.shields.io/badge/Java-17-orange)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4-green)
-![React](https://img.shields.io/badge/Frontend-React%20%2B%20TypeScript-blue)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue)
 ![Redis](https://img.shields.io/badge/Redis-Distributed%20Lock-red)
 ![Grafana](https://img.shields.io/badge/Observability-Grafana%20%2B%20Prometheus-orange)
 
-**FlashTix** is a full-stack, high‑throughput ticketing system designed for flash‑sale‑style traffic while guaranteeing **strict data consistency** and **no double booking**.
+**FlashTix** is a pure backend concurrency engine designed to handle massive traffic spikes (e.g., flash sales) without data corruption.
 
-The engine uses a **defense‑in‑depth concurrency strategy** so that, even under thousands of concurrent requests, **exactly one user** can successfully book a given seat and all other requests are rejected with a clear `409 Conflict`.
+Unlike typical CRUD apps, FlashTix implements a **Defense-in-Depth** locking strategy to guarantee that **exactly one user** secures a seat, even when 5,000+ concurrent requests hit the same record simultaneously.
+
+---
+
+## 🏗️ System Architecture
+
+The system uses a multi-layered approach to protect the database from race conditions.
+
+![System Architecture](assets/architecture.png)
+
+### 1. The Gatekeeper: Redis Distributed Lock
+* **Mechanism:** `SETNX` (Atomic Set-if-Not-Exists) with a 10-second TTL.
+* **Role:** High-speed mutex. It rejects ~99% of conflicting traffic in-memory before it ever touches the database.
+* **Resilience:** Locks auto-expire to prevent deadlocks if a service instance crashes.
+
+### 2. The Safety Net: Optimistic Locking (PostgreSQL)
+* **Mechanism:** JPA `@Version` column.
+* **Role:** Final consistency check. If two requests somehow bypass Redis (e.g., lock expiry edge case), the database rejects the second commit with an `ObjectOptimisticLockingFailureException`.
 
 ---
 
 ## 📊 Proof of Work: Real-Time Observability
 
-FlashTix doesn’t just “run”; it exposes rich metrics so you can **see** the concurrency behavior in real time.
+I integrated **Prometheus** and **Grafana** to visualize the system's behavior under stress.
 
 ![Grafana Dashboard](assets/high-concurrency-dashboard.png)
 
 | Metric | Result | Description |
 | :--- | :--- | :--- |
-| **Concurrency Load** | **5000 Threads** | Simulates thousands of users hitting `/book` at the same time. |
-| **Success Rate** | **1 Booking** | Only one user obtains the ticket for a given ID. |
-| **Rejection Rate** | **N‑1 Conflicts** | All other requests receive HTTP 409 (already booked / sold out). |
-| **Data Integrity** | **100%** | No race conditions, lost updates, or duplicate bookings detected. |
-| **Throughput** | **~900 req/s+** | Measured during `ApiLoadTest` against a running instance. |
-
----
-
-## 🏗️ System Architecture: Defense-in-Depth
-
-Booking requests flow through several layers to protect the database and maintain correctness.
-
-![System Architecture](assets/architecture.png)
-
-### 1. Redis Distributed Lock (Gatekeeper Layer)
-* **Tech:** Redis with `SETNX` + expiry and atomic Lua scripts.
-* **Role:** Per‑ticket mutex. Only one request per `ticketId` can proceed to the critical section at a time.
-* **Details:**
-    * Uses a **TTL** so locks auto‑expire if a node dies mid‑request.
-    * Releases only if the same owner holds the lock (checked via Lua script).
-    * Prevents thundering‑herd write load on Postgres.
-
-### 2. Optimistic Locking with JPA (Database Guard)
-* **Tech:** JPA `@Version` column on `Ticket`.
-* **Role:** Final safety net at the database level.
-* **Behavior:**
-    * When two transactions try to update the same row, only the first commit succeeds.
-    * Later commits see a stale version and fail with an optimistic locking exception, which is translated into HTTP `409 Conflict`.
-
-### 3. Validation & Business Rules
-* Checks ticket existence, current status (AVAILABLE / SOLD), and user constraints.
-* Returns **meaningful HTTP errors**:
-    * `404` if the ticket does not exist.
-    * `409` if the ticket is already sold.
-    * `500` for unexpected failures with a consistent JSON error envelope.
-
----
-
-## 💻 Frontend: React Load Test Simulator
-
-FlashTix includes a small React + TypeScript UI to visualize and experiment with concurrency.
-
-**Features:**
-* **Seat Grid:** Tickets are loaded from the backend. Colors reflect real‑time status (Green = Available, Red = Booked).
-* **Load Test Simulator Panel:**
-    * Input a Target Ticket ID and Number of Concurrent Users.
-    * Fires concurrent requests to `/api/tickets/book`.
-    * Summarizes results (Success vs Conflicts, Duration, Throughput).
-* **Error Handling:** CORS configured for dev environment; Toasts display success/conflict messages.
-
-**To run the frontend:**
-```bash
-cd frontend
-npm install
-npm start
-# React dev server starts on http://localhost:3000
-
-```
-
-*Note: Ensure `.env` points to `REACT_APP_API_URL=http://localhost:8080/api*`
-
----
-
-## ✅ CI/CD & Testing
-
-FlashTix is wired with a CI pipeline that builds and tests the backend on every push.
-
-**GitHub Actions:**
-
-* Runs `mvn clean test` on Java 17.
-* Fails fast if Spring context cannot load or concurrency invariants are violated.
-
-**Backend Tests:**
-
-1. **`BackendApplicationTests`**: Sanity check for context loading.
-2. **`TicketConcurrencyTest`**:
-* Boots Spring context.
-* Fires thousands of concurrent booking calls in‑JVM.
-* Asserts exactly one success and correct Ticket Version.
-
-
-3. **`ApiLoadTest`**:
-* Targets a running server over HTTP.
-* Logs success/conflict counts matching Grafana behavior.
-
-
+| **Concurrency Load** | **5,000 Threads** | Simulates a "Thundering Herd" on a single ticket ID. |
+| **Success Rate** | **1 Booking** | Exactly one user receives HTTP 200 OK. |
+| **Rejection Rate** | **4,999 Conflicts** | All other requests fail with HTTP 409 Conflict. |
+| **Data Integrity** | **100%** | Zero lost updates or double bookings. |
+| **Throughput** | **~900 req/s** | Sustained write throughput on local hardware. |
 
 ---
 
 ## 🚀 Tech Stack
 
-### Language & Frameworks
-
-* **Java 17**
-* **Spring Boot 3.4** (Web, Data JPA, Validation, Actuator)
-* **Spring Data Redis**
-
-### Frontend
-
-* **React** + **TypeScript** + **Axios**
-* **Tailwind CSS**
-
-### Data & Infrastructure
-
-* **PostgreSQL 15** (HikariCP pool)
-* **Redis** (Distributed locking & caching)
-* **Docker** & **Docker Compose** (Infrastructure orchestration)
-
-### Observability
-
-* **Spring Boot Actuator** + **Micrometer**
-* **Prometheus** (Metrics scraper)
-* **Grafana** (Dashboards for Lock Contention & DB Pool)
+* **Core:** Java 17, Spring Boot 3.4 (Web, Data JPA, Actuator)
+* **Database:** PostgreSQL 15 (HikariCP Connection Pooling)
+* **Caching & Locking:** Redis (Spring Data Redis)
+* **Observability:** Prometheus, Grafana, Micrometer
+* **Testing:** JUnit 5, Mockito, Testcontainers
+* **Containerization:** Docker, Docker Compose
 
 ---
 
-## 🛠️ How to Run Locally
+## 🛠️ How to Run
 
-### 1. Start Infrastructure (Docker)
-
-From the project root:
-
+### 1. Start Infrastructure
+Run the database and monitoring stack in the background:
 ```bash
 cd backend
 docker compose up -d
@@ -151,57 +68,54 @@ docker compose up -d
 
 ```
 
-### 2. Run the Backend
+### 2. Start the Backend Server
 
 ```bash
 cd backend
 mvn spring-boot:run
-# Backend starts on http://localhost:8080
+# Server starts at http://localhost:8080
 
 ```
 
-### 3. Run the Frontend
+### 3. Test the API
 
-```bash
-cd frontend
-npm install
-npm start
-# Frontend starts on http://localhost:3000
-
-```
-
----
-
-## 🧪 Running Stress Tests
-
-### 1. Seed the Database
-
-Creates 100 fresh tickets (ID 1..100):
+**Step 1: Seed Data (Create 100 Tickets)**
 
 ```bash
 curl -X POST http://localhost:8080/api/tickets/seed
 
 ```
 
-### 2. Backend Load Test (Code)
-
-From the `backend` directory:
+**Step 2: Attempt to Book a Ticket**
 
 ```bash
-# API-level load test
-mvn test -Dtest=ApiLoadTest
-
-# Concurrency test using Spring context
-mvn test -Dtest=TicketConcurrencyTest
+curl -X POST "http://localhost:8080/api/tickets/book?ticketId=1&userId=101"
 
 ```
 
-### 3. Frontend Load Test (UI)
+* **Response:** `200 OK` (Booking Successful) or `409 Conflict` (Already Booked).
 
-1. Open http://localhost:3000.
-2. Use the **Load Test Simulator** panel.
-3. Set a Ticket ID (e.g., `50`) and Users (e.g., `500`).
-4. Click **Start Load Test** and watch the seat turn red!
+---
+
+## 🧪 Testing Strategy
+
+The system is validated using **three layers of automated testing**:
+
+1. **`TicketConcurrencyTest` (The Stress Test):**
+* Uses a thread pool of **5,000 virtual users**.
+* Hammers the `bookTicket()` method concurrently.
+* **Asserts:** Exactly 1 success, 4999 failures, and correct final DB state.
+
+
+2. **`ApiLoadTest`:**
+* Runs against the live HTTP server to measure end-to-end latency and throughput.
+
+
+3. **CI/CD Pipeline (GitHub Actions):**
+* Automatically builds and runs tests on every commit.
+* Uses a real PostgreSQL service container (no H2) to ensure production parity.
+
+
 
 ---
 
@@ -209,9 +123,5 @@ mvn test -Dtest=TicketConcurrencyTest
 
 **Mohd Arshad**
 
-* Backend Engineer
-* [LinkedIn Profile](https://www.google.com/search?q=%23)
-
-```
-
-```
+* Backend Engineer | System Design Enthusiast
+* [LinkedIn Profile](https://www.linkedin.com/in/mohd-arshad-156227314/) | [GitHub Profile](https://github.com/MohdArshad-cell)
